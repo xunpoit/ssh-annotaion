@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xmlns:context="http://www.springframework.org/schema/context" 
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context.xsd"> <!-- bean definitions here -->
+  
+  <!-- 数据源C3P0 -->
+  <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+     <property name="driverClass" value="${jdbc.driver}"/>
+     <property name="jdbcUrl" value="${jdbc.url}"/>
+     <property name="user" value="${jdbc.user}"/>
+     <property name="password" value="${jdbc.pass}"/>
+  </bean>
+  <!-- 注入属性文件 -->
+  <context:property-placeholder location="classpath:jdbc.properties"/>
+  
+  <!-- 注册sessionFactory -->
+  <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    <property name="dataSource" ref="dataSource"/>
+    <property name="mappingDirectoryLocations" value="classpath:com/xunpoit/beans"/>
+    <property name="hibernateProperties">
+       <props>
+          <prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+          <prop key="hibernate.show_sql">true</prop>
+          <prop key="hibernate.format_sql">true</prop>
+          <prop key="hibernate.hbm2ddl.auto">update</prop>
+          <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
+       </props>
+    </property>
+  </bean>
+
+  <!-- 注册DAO -->
+  <bean id="userDao" class="com.xunpoit.dao.UserDaoImpl">
+      <property name="sessionFactory" ref="sessionFactory"></property>
+  </bean>
+  <!--  注册Service -->
+  <bean id="userService" class="com.xunpoit.service.UserServiceImpl">
+      <property name="userDao" ref="userDao"></property>
+  </bean>
+  <!--  注册action -->
+  <bean id="registerAction" class="com.xunpoit.action.RegisterAction" scope="prototype">
+     <property name="userService" ref="userService"/>
+  </bean>
+  
+  <bean id="queryAction" class="com.xunpoit.action.QueryAction" scope="prototype">
+     <property name="userService" ref="userService"/>
+  </bean>
+  
+  <!-- 注册事务管理器 -->
+  <bean id="transactionManager" class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+     <property name="sessionFactory" ref="sessionFactory"></property>
+  </bean>
+  
+  <!-- 注册事务通知 -->
+  <tx:advice id="txAdvice" transaction-manager="transactionManager">
+     <tx:attributes>
+        <!--  service 方法中的名称 -->
+        <tx:method name="add*" isolation="DEFAULT" propagation="REQUIRED"/>
+        <tx:method name="query*" isolation="DEFAULT" propagation="REQUIRED" read-only="true"/>
+     </tx:attributes>
+  </tx:advice>
+  <!-- aop 配置 -->
+  <aop:config>
+     <aop:pointcut expression="execution(* *..service.*(..))" id="mypointcut"/>
+     <aop:advisor advice-ref="txAdvice" pointcut-ref="mypointcut"/>
+  </aop:config>
+    
+</beans>
